@@ -1,5 +1,5 @@
 <div align="center">
-  <h1>🚀 Hirelens</h1>
+  <h1>🚀 HireLens</h1>
   <p><strong>AI-Powered Job Analysis & Resume Optimization Platform</strong></p>
   <p>Transform your job search with intelligent resume matching, real-time job discovery, and AI-powered career insights.</p>
   
