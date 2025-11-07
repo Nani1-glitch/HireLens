@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="260" viewBox="0 0 240 260" role="img" aria-labelledby="title desc">
+  <title id="title">HireLens logo stacked</title>
+  <desc id="desc">Icon above with the HireLens wordmark below.</desc>
+  <g transform="translate(56,16)">
+    <circle cx="56" cy="56" r="36" fill="#FFFFFF" opacity="0.9"/>
+    <circle cx="56" cy="56" r="44.0" fill="none" stroke="#2563EB" stroke-width="12"
+    stroke-linecap="round" stroke-dasharray="51.292031 225.168123" stroke-dashoffset="0"/>
+<circle cx="56" cy="56" r="44.0" fill="none" stroke="#10B981" stroke-width="12"
+    stroke-linecap="round" stroke-dasharray="51.292031 225.168123" stroke-dashoffset="55.292031"/>
+<circle cx="56" cy="56" r="44.0" fill="none" stroke="#F59E0B" stroke-width="12"
+    stroke-linecap="round" stroke-dasharray="51.292031 225.168123" stroke-dashoffset="110.584061"/>
+<circle cx="56" cy="56" r="44.0" fill="none" stroke="#8B5CF6" stroke-width="12"
+    stroke-linecap="round" stroke-dasharray="51.292031 225.168123" stroke-dashoffset="165.876092"/>
+<circle cx="56" cy="56" r="44.0" fill="none" stroke="#EF4444" stroke-width="12"
+    stroke-linecap="round" stroke-dasharray="51.292031 225.168123" stroke-dashoffset="221.168123"/>
+    <rect x="92" y="92" width="20" height="56" rx="10" ry="10" fill="#111827" opacity="0.9" transform="rotate(45 102 120)"/>
+  </g>
+  <g>
+    <text x="50%" y="200" text-anchor="middle"
+          font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+          font-weight="700" font-size="40" fill="#111827" letter-spacing="0.5">Hire<tspan font-weight="600">Lens</tspan></text>
+  </g>
+</svg>

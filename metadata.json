@@ -1,0 +1,5 @@
+{
+  "name": "Hirelens",
+  "description": "Hirelens: An AI-powered tool that analyzes and rates the quality of job postings based on criteria like salary transparency, work location, cost of living, and potential red flags.",
+  "requestFramePermissions": []
+}
