@@ -54,8 +54,8 @@ const atsResponseSchema = {
     type: Type.OBJECT,
     properties: {
         matchScore: { type: Type.NUMBER, description: "A score from 0-100 indicating how well the resume matches the job description." },
-        matchingKeywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "A list of keywords and skills from the job description found in the resume." },
-        missingKeywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "A list of important keywords and skills from the job description NOT found in the resume." },
+        matchingKeywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "A comprehensive list of keywords and skills from the job description found ANYWHERE in the resume (including projects, experience descriptions, skills sections, etc.). Include acronyms and their full forms if found (e.g., include both 'RNN' and 'recurrent neural network' if either appears)." },
+        missingKeywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "A list of important keywords and skills from the job description that are TRULY NOT found in the resume in any form, variation, or acronym. Only include keywords that are completely absent - do not mark keywords as missing if they appear in project descriptions, experience sections, or any other part of the resume." },
         summary: { type: Type.STRING, description: "A brief summary of the candidate's fit for the role." },
         suggestions: { type: Type.STRING, description: "Actionable suggestions for the candidate to improve their resume for this specific job posting." },
     },
@@ -129,6 +129,14 @@ export const analyzeResumeAgainstJob = async (resumeText: string, jobText: strin
     const prompt = `
       Act as an advanced Applicant Tracking System (ATS). Your task is to analyze the provided resume against the given job description.
       Provide a detailed analysis in the specified JSON format. The analysis should be objective and based on keyword and skill matching.
+      
+      IMPORTANT INSTRUCTIONS FOR KEYWORD MATCHING:
+      1. Search for keywords in ALL sections of the resume: Experience, Projects, Skills, Education, Certificates, etc.
+      2. Recognize acronyms and their full forms (e.g., "RNN" matches "recurrent neural network", "LSTM" matches "long short-term memory", "CNN" matches "convolutional neural network")
+      3. Look for keywords in project descriptions, work experience descriptions, and any other sections - not just a dedicated skills section
+      4. Consider variations and related terms (e.g., "machine learning" matches "ML", "deep learning" matches "DL")
+      5. Be thorough - if a keyword appears anywhere in the resume (even in project titles or descriptions), it should be considered FOUND
+      6. Only mark keywords as MISSING if they are truly not present in any form or variation in the resume
   
       Job Description:
       ---
@@ -213,8 +221,8 @@ const resumeOptimizationSchema = {
         type: Type.OBJECT,
         properties: {
           original: { type: Type.STRING, description: "The original bullet point text" },
-          optimized: { type: Type.STRING, description: "The optimized version that improves ATS scores and readability" },
-          improvementReason: { type: Type.STRING, description: "Brief explanation of why this optimization improves the resume" },
+          optimized: { type: Type.STRING, description: "The optimized version that improves ATS scores and readability. CRITICAL: Do NOT add any technologies, programming languages, frameworks, or tools that are NOT in the original bullet. Only enhance what exists - improve wording, use better action verbs, add metrics if implied, but never fabricate skills or technologies." },
+          improvementReason: { type: Type.STRING, description: "Brief explanation of why this optimization improves the resume. Must explain how the optimization enhances existing content without adding new technologies or skills." },
           atsScoreIncrease: { type: Type.NUMBER, description: "Estimated ATS score increase (0-10 points) for this bullet" }
         },
         required: ['original', 'optimized', 'improvementReason', 'atsScoreIncrease']
@@ -222,12 +230,189 @@ const resumeOptimizationSchema = {
       description: "Array of optimized bullet points with improvements"
     },
     overallImprovement: { type: Type.STRING, description: "Summary of overall improvements made" },
-    estimatedAtsIncrease: { type: Type.NUMBER, description: "Total estimated ATS score increase (0-50 points)" }
+    estimatedAtsIncrease: { type: Type.NUMBER, description: "Total estimated ATS score increase (0-50 points)" },
+          skillRecommendations: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          skill: { type: Type.STRING, description: "The missing skill or technology. CRITICAL: Only include skills that are ABSOLUTELY NOT found anywhere in the full resume text or bullet points, after exhaustively checking for: exact matches (case-insensitive), abbreviations, variations, version numbers, framework extensions, alternative names, synonyms, and contextual mentions. Apply this verification process to ALL technologies, not just specific ones. When in doubt, DO NOT include the skill here." },
+          exampleBullet: { type: Type.STRING, description: "An example bullet point that would showcase this skill IF the candidate had it. Format: 'Example bullet point that demonstrates [skill] experience'" },
+          reason: { type: Type.STRING, description: "Why this skill is important for the job and how it would improve the resume" },
+          priority: { type: Type.STRING, enum: ['high', 'medium', 'low'], description: "Priority level: 'high' if it's a required skill, 'medium' if it's preferred, 'low' if it's nice to have" }
+        },
+        required: ['skill', 'exampleBullet', 'reason', 'priority']
+      },
+      description: "Array of recommended skills that are important for the job but TRULY missing from the resume. CRITICAL: Before adding ANY skill here, you MUST have: (1) searched the entire resume text (if provided) case-insensitively from top to bottom, (2) checked all bullet points, (3) checked for abbreviations, variations, version numbers, framework extensions, alternative names, and synonyms, (4) checked for contextual mentions and implied skills, (5) verified the skill is ABSOLUTELY NOT found in ANY form. Apply this process GENERALLY to all technologies, not just specific ones. When in doubt, DO NOT include the skill. These are suggestions only - do NOT add them to optimized bullets. Only include if jobDescription is provided."
+    }
   },
   required: ['originalBullets', 'optimizedBullets', 'overallImprovement', 'estimatedAtsIncrease']
 };
 
-export const optimizeResumeBullets = async (resumeBullets: string[], jobDescription?: string): Promise<ResumeOptimization> => {
+// Schema for extracting bullet points from resume text
+const extractBulletsSchema = {
+  type: Type.OBJECT,
+  properties: {
+    bullets: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Array of bullet points extracted from the resume. Include all achievement bullets, responsibility bullets, and project description bullets. Each bullet should be a complete, standalone statement."
+    }
+  },
+  required: ['bullets']
+};
+
+// Schema for selecting relevant bullets based on job description
+const selectRelevantBulletsSchema = {
+  type: Type.OBJECT,
+  properties: {
+    selectedBullets: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "Array of the most relevant bullet points selected from the resume that match the job description. Prioritize bullets that demonstrate skills, technologies, and experiences mentioned in the job requirements."
+    },
+    reasoning: {
+      type: Type.STRING,
+      description: "Brief explanation of why these bullets were selected and how they relate to the job requirements."
+    }
+  },
+  required: ['selectedBullets', 'reasoning']
+};
+
+export const extractBulletsFromResume = async (resumeText: string): Promise<string[]> => {
+  if (!ai || !API_KEY) {
+    throw new Error("Gemini API key is not configured.");
+  }
+
+  const prompt = `
+    Act as a resume parser. Extract all bullet points from the provided resume text.
+    
+    Resume Text:
+    ---
+    ${resumeText}
+    ---
+    
+    Instructions:
+    1. Extract ALL bullet points from the resume, including:
+       - Work experience bullet points (responsibilities and achievements)
+       - Project description bullet points
+       - Any other achievement or responsibility statements formatted as bullets
+    2. Each bullet should be a complete, standalone statement
+    3. Preserve the original wording and meaning
+    4. Remove bullet symbols (•, -, *, etc.) but keep the text
+    5. Include bullets from all sections: Experience, Projects, Education (if applicable), etc.
+    6. Do NOT include:
+       - Section headers
+       - Contact information
+       - Skills lists (unless formatted as bullets)
+       - Dates or locations (unless part of the bullet point content)
+    7. Return only the bullet point text, one per array item
+    
+    Return an array of bullet point strings extracted from the resume.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: extractBulletsSchema,
+      },
+    });
+
+    const jsonText = response.text.trim();
+    if (!jsonText) {
+      throw new Error("Empty response from AI. Please try again.");
+    }
+    
+    const parsed = JSON.parse(jsonText) as { bullets: string[] };
+    
+    // Validate response
+    if (!parsed.bullets || !Array.isArray(parsed.bullets) || parsed.bullets.length === 0) {
+      throw new Error("No bullet points found in the resume. Please ensure your resume contains bullet points.");
+    }
+    
+    return parsed.bullets;
+  } catch (error: any) {
+    console.error("Error extracting bullets from resume:", error);
+    if (error?.message?.includes("JSON")) {
+      throw new Error("Failed to parse AI response. Please try again.");
+    }
+    throw new Error(`Failed to extract bullets from resume: ${error?.message || "Unknown error"}`);
+  }
+};
+
+export const selectRelevantBullets = async (
+  allBullets: string[],
+  jobDescription: string,
+  maxBullets: number = 20
+): Promise<{ selectedBullets: string[]; reasoning: string }> => {
+  if (!ai || !API_KEY) {
+    throw new Error("Gemini API key is not configured.");
+  }
+
+  const prompt = `
+    Act as a resume optimization expert. Analyze the provided bullet points from a resume and select the most relevant ones for the given job description.
+    
+    Job Description:
+    ---
+    ${jobDescription}
+    ---
+    
+    All Resume Bullet Points:
+    ---
+    ${allBullets.map((b, i) => `${i + 1}. ${b}`).join('\n')}
+    ---
+    
+    Instructions:
+    1. Select the ${maxBullets} most relevant bullet points that best match the job requirements
+    2. Prioritize bullets that:
+       - Mention technologies, skills, or tools listed in the job description
+       - Demonstrate relevant experience or achievements
+       - Show quantifiable results or impact
+       - Align with key responsibilities mentioned in the job
+    3. Include a mix of technical skills, achievements, and relevant experience
+    4. Preserve the original wording of selected bullets
+    5. Return exactly ${maxBullets} bullets (or fewer if there aren't enough relevant ones)
+    6. Provide reasoning for your selection
+    
+    Select the most relevant bullet points for this specific job.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: selectRelevantBulletsSchema,
+      },
+    });
+
+    const jsonText = response.text.trim();
+    if (!jsonText) {
+      throw new Error("Empty response from AI. Please try again.");
+    }
+    
+    const parsed = JSON.parse(jsonText) as { selectedBullets: string[]; reasoning: string };
+    
+    // Validate response
+    if (!parsed.selectedBullets || !Array.isArray(parsed.selectedBullets) || parsed.selectedBullets.length === 0) {
+      throw new Error("No relevant bullet points were selected. Please try again.");
+    }
+    
+    return parsed;
+  } catch (error: any) {
+    console.error("Error selecting relevant bullets:", error);
+    if (error?.message?.includes("JSON")) {
+      throw new Error("Failed to parse AI response. Please try again.");
+    }
+    throw new Error(`Failed to select relevant bullets: ${error?.message || "Unknown error"}`);
+  }
+};
+
+export const optimizeResumeBullets = async (resumeBullets: string[], jobDescription?: string, fullResumeText?: string): Promise<ResumeOptimization> => {
   if (!ai || !API_KEY) {
     throw new Error("Gemini API key is not configured.");
   }
@@ -242,15 +427,123 @@ export const optimizeResumeBullets = async (resumeBullets: string[], jobDescript
     ${resumeBullets.join('\n')}
     ---
     
-    Guidelines:
-    - Use action verbs and quantifiable metrics
-    - Include relevant keywords naturally
-    - Make achievements specific and measurable
-    - Improve clarity and impact
-    - Maintain authenticity (don't fabricate achievements)
-    - Each optimized bullet should be more compelling than the original
+    ${fullResumeText ? `Full Resume Text (for skill checking):
+    ---
+    ${fullResumeText}
+    ---
     
-    Provide optimized versions with explanations for each improvement.
+    CRITICAL SKILL DETECTION INSTRUCTIONS:
+    When checking for missing skills, you MUST perform a COMPREHENSIVE search of the ENTIRE resume text above. Follow these steps for EACH skill mentioned in the job description:
+    
+    STEP 1: Search Strategy
+    - Use case-insensitive matching (e.g., "Python" = "python" = "PYTHON")
+    - Check for abbreviations and variations (e.g., "JS" = "JavaScript", "SQL" might imply database skills)
+    - Look for related terms and synonyms
+    - Check for framework/library names with or without extensions (e.g., "React" = "React.js" = "reactjs")
+    - Search ALL sections: Skills, Technologies, Experience, Projects, Education, Certificates, etc.
+    
+    STEP 2: Variation Recognition (apply to ALL technologies, not just specific ones)
+    - Technology names may appear with/without version numbers (e.g., "CSS" = "CSS3", "HTML" = "HTML5")
+    - Framework names may appear with/without extensions (e.g., "Express" = "Express.js", "Node" = "Node.js")
+    - Database names may appear in different forms (e.g., "MySQL" = "mysql" = "MySql")
+    - API-related terms have many variations (e.g., "REST" = "RESTful" = "REST API" = "RESTful APIs")
+    - Programming languages may appear as abbreviations (e.g., "JS" = "JavaScript", "TS" = "TypeScript")
+    - Cloud platforms may appear in different formats (e.g., "AWS" = "Amazon Web Services", "GCP" = "Google Cloud Platform")
+    
+    STEP 3: Contextual Recognition
+    - If a technology is mentioned in a related context, it likely exists (e.g., "React development" implies JavaScript/HTML/CSS knowledge)
+    - If a framework is mentioned, its underlying technologies are likely present
+    - If "web development" or "front-end" is mentioned, HTML/CSS are almost certainly present
+    - If "database" work is mentioned with a specific DB, that DB skill exists
+    
+    STEP 4: Verification Before Marking as Missing
+    For EACH skill from the job description, ask yourself:
+    1. Did I find the exact skill name? (case-insensitive)
+    2. Did I find any abbreviation or variation?
+    3. Did I find it in a related context or synonym?
+    4. Is it implied by other technologies mentioned?
+    
+    If you answered YES to ANY of the above → DO NOT mark as missing. Skip it entirely.
+    Only if you answered NO to ALL of the above → Then you may consider marking it as missing.
+    
+    GENERAL RULE: When in doubt, DO NOT mark as missing. Be conservative - it's better to miss a recommendation than to incorrectly claim a skill is missing when the candidate actually has it.` : `NOTE: Full resume text not provided. You only have access to the bullet points above. When checking for missing skills, thoroughly check the bullet points themselves for any mentioned technologies, frameworks, or tools. Be conservative - only mark skills as missing if you're absolutely certain they're not mentioned in the bullets.`}
+    
+    CRITICAL RULES - DO NOT VIOLATE THESE:
+    1. NEVER add technologies, programming languages, frameworks, or tools that are NOT mentioned in the original bullet point
+    2. NEVER fabricate skills, experiences, or achievements that don't exist in the original
+    3. ONLY enhance what is already present - improve wording, add quantifiable metrics if implied, use better action verbs
+    4. If a technology from the job description is missing, DO NOT add it to the bullet - the candidate doesn't have that experience
+    5. Maintain authenticity - only optimize the existing content, don't create new content
+    6. Preserve the original meaning and scope of work described
+    
+    Guidelines for optimization:
+    - Use stronger action verbs (e.g., "Led" instead of "Worked on", "Architected" instead of "Made")
+    - Add quantifiable metrics if they're implied or can be inferred from context (e.g., "team of 5" if mentioned elsewhere)
+    - Improve clarity and impact of existing achievements
+    - Better align wording with job description keywords (but only if those keywords relate to what's already in the bullet)
+    - Make achievements more specific and measurable
+    - Improve readability and flow
+    
+    What NOT to do:
+    - Do NOT add programming languages not in the original (e.g., don't add "using Go" if Go isn't mentioned)
+    - Do NOT add frameworks or tools not in the original
+    - Do NOT claim experience with technologies the candidate doesn't have
+    - Do NOT fabricate achievements or responsibilities
+    - Do NOT change the core technology stack or tools used
+    
+    ${jobDescription ? `IMPORTANT - Skill Recommendations Section:
+    After optimizing the bullets, identify important skills/technologies from the job description that are MISSING from the resume.
+    
+    CRITICAL SKILL DETECTION RULES - APPLY TO ALL TECHNOLOGIES:
+    
+    MANDATORY VERIFICATION PROCESS for EACH skill mentioned in the job description:
+    
+    Step 1: Comprehensive Search
+    - Search the FULL resume text (if provided) case-insensitively from top to bottom
+    - Search ALL sections: Skills, Technologies, Experience, Projects, Education, Certificates, etc.
+    - Search the bullet points provided above
+    - Use case-insensitive matching (Python = python = PYTHON)
+    
+    Step 2: Variation Detection (apply these rules GENERALLY to any technology):
+    - Check for exact match (case-insensitive)
+    - Check for abbreviations (e.g., JS = JavaScript, TS = TypeScript, SQL might imply specific DB)
+    - Check for version numbers (e.g., CSS = CSS3, HTML = HTML5, Python = Python 3)
+    - Check for framework/library extensions (e.g., React = React.js, Express = Express.js, Node = Node.js)
+    - Check for alternative names or synonyms
+    - Check for related terms in context (e.g., "database work" with MySQL context = MySQL skill)
+    - Check for implied skills (e.g., React implies JavaScript/HTML/CSS, Docker implies containerization)
+    
+    Step 3: Contextual Analysis
+    - If a technology is mentioned in a related context, it likely exists
+    - If a framework is used, its underlying technologies are typically present
+    - If domain-specific work is mentioned (web dev, cloud, ML, etc.), related fundamental skills are likely present
+    
+    Step 4: Decision Rule
+    For EACH skill from job description:
+    - If found in ANY form (exact, variation, abbreviation, context) → DO NOT mark as missing, SKIP IT
+    - If NOT found after exhaustive search → Only then consider marking as missing
+    
+    CRITICAL PRINCIPLE: When in doubt, DO NOT mark as missing. It's better to miss a recommendation than to incorrectly claim a candidate lacks a skill they actually have. Be EXTREMELY conservative.
+    
+    Only mark a skill as MISSING if ALL of these are true:
+    1. You searched the ENTIRE full resume text (if provided) case-insensitively
+    2. You checked the bullet points thoroughly
+    3. You checked for abbreviations, variations, and related terms
+    4. You checked contextual mentions and implied skills
+    5. The skill is ABSOLUTELY NOT found in ANY form anywhere
+    6. You are 100% certain after exhaustive verification
+    
+    If the full resume text is NOT provided, be even more conservative - only mark skills as missing if you're absolutely certain they're not in the bullet points.
+    
+    For each truly missing skill:
+    - Identify the skill (e.g., "Go", "Kubernetes", "AWS")
+    - Provide an example bullet point that WOULD showcase this skill IF the candidate had it (format: "Example: Developed backend services using Go...")
+    - Explain why this skill is important for the job
+    - Assign priority: 'high' (required skill), 'medium' (preferred), 'low' (nice to have)
+    
+    These recommendations should be in a SEPARATE section - do NOT add them to the optimized bullets. They are suggestions for skills the candidate could learn or add if they have relevant experience.` : ''}
+    
+    Provide optimized versions with explanations for each improvement. Each optimized bullet should be more compelling while staying 100% truthful to the original.
   `;
 
   try {

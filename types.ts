@@ -87,11 +87,19 @@ export interface OptimizedResumeBullet {
   atsScoreIncrease: number; // Estimated increase in ATS score
 }
 
+export interface SkillRecommendation {
+  skill: string;
+  exampleBullet: string;
+  reason: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
 export interface ResumeOptimization {
   originalBullets: string[];
   optimizedBullets: OptimizedResumeBullet[];
   overallImprovement: string;
   estimatedAtsIncrease: number;
+  skillRecommendations?: SkillRecommendation[];
 }
 
 export interface SalaryNegotiation {

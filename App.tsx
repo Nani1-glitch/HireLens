@@ -3,7 +3,9 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { 
   analyzeJobPosting, 
   analyzeResumeAgainstJob, 
-  optimizeResumeBullets, 
+  optimizeResumeBullets,
+  extractBulletsFromResume,
+  selectRelevantBullets,
   generateCoverLetter, 
   analyzeSalaryNegotiation, 
   compareResumeVersions,
@@ -71,6 +73,123 @@ Salary: Competitive
 
 We are hiring a Junior Graphic Designer to join our team in NYC. Must be proficient in Adobe Creative Suite. This is a full-time, onsite position. The successful candidate will work on a variety of design projects.
 Posted 2 months ago`
+  },
+  {
+    name: 'VR Engineer - Meta Quest',
+    content: `VR Software Engineer - Immersive Technologies
+Meta Reality Labs - Remote (USA) / Menlo Park, CA (Hybrid)
+Salary: $140,000 - $170,000 per year
+Posted: 3 days ago
+
+Meta Reality Labs is seeking a talented VR Software Engineer to join our immersive technologies team. You will work on cutting-edge virtual reality experiences using Meta Quest 3, haptic feedback systems, and advanced VR development tools.
+
+Key Responsibilities:
+- Develop and optimize VR applications using Unreal Engine 5
+- Implement haptic feedback systems for immersive user experiences
+- Design and develop fine-grain mesh manipulation techniques for real-time VR
+- Build reinforcement learning algorithms for VR navigation and interaction
+- Integrate VR hardware including Meta Quest 3, haptic gloves, and Vive Trackers
+- Collaborate with cross-functional teams to deliver high-quality VR experiences
+
+Required Qualifications:
+- 2+ years of experience in VR development or related field
+- Proficiency in Unreal Engine 5 and/or Unity
+- Experience with VR hardware (Meta Quest, Vive, Oculus)
+- Strong programming skills in C++, Python, or C#
+- Knowledge of haptic feedback systems and VR interaction design
+- Experience with reinforcement learning or AI/ML in VR contexts
+
+Preferred Qualifications:
+- Research experience in VR technologies
+- Experience with mesh manipulation and 3D graphics programming
+- Knowledge of raycasting and line tracing techniques
+- Background in game development or simulation systems
+
+We offer competitive compensation, comprehensive benefits, flexible work arrangements, and the opportunity to work on groundbreaking VR technology. This position can be fully remote or hybrid based in Menlo Park, CA.`
+  },
+  {
+    name: 'Computer Vision Engineer',
+    content: `Computer Vision Engineer - AI/ML
+TechVision AI - Chicago, IL (Hybrid) / Remote
+Salary: $130,000 - $160,000 per year
+Posted: 5 days ago
+
+TechVision AI is looking for a Computer Vision Engineer to join our AI/ML team. You will work on advanced computer vision projects including image classification, object detection, semantic segmentation, and deep learning model development.
+
+Key Responsibilities:
+- Design and implement convolutional neural networks (CNNs) for image classification and object detection
+- Develop and optimize computer vision models using TensorFlow, PyTorch, and Keras
+- Work with OpenCV for image processing and computer vision tasks
+- Implement object detection models using YOLO (You Only Look Once) and Faster R-CNN architectures
+- Work on advanced projects involving VGG16, Vision Transformers, and ensemble learning
+- Implement image steganalysis and detection systems
+- Build and train GANs for image synthesis and generation
+- Perform semantic segmentation for image understanding tasks
+- Apply transfer learning techniques to adapt pre-trained models
+- Optimize model performance and accuracy through experimentation
+- Collaborate with data scientists and ML engineers on production systems
+
+Required Qualifications:
+- Master's degree in Computer Science or related field with focus on AI/ML
+- 2+ years of experience in computer vision or deep learning
+- Strong proficiency in Python, TensorFlow, and PyTorch
+- Experience with OpenCV for image processing
+- Experience with CNN architectures (VGG16, ResNet, etc.)
+- Knowledge of object detection frameworks (YOLO, Faster R-CNN)
+- Experience with semantic segmentation techniques
+- Knowledge of computer vision techniques and image processing
+- Experience with datasets like CIFAR-10, MNIST, COCO, and custom datasets
+- Strong understanding of neural networks, backpropagation, and optimization
+- Experience with transfer learning and fine-tuning pre-trained models
+
+Preferred Qualifications:
+- Experience with Vision Transformers and attention mechanisms
+- Knowledge of GANs, RNNs, and LSTM models
+- Experience with ensemble learning and model optimization
+- Research experience in computer vision or related fields
+- Publications or projects in image classification, object detection, or deep learning
+- Experience with cloud platforms (AWS, GCP, Azure) for model deployment
+
+We offer a competitive salary, health benefits, flexible PTO, and opportunities for professional growth. This is a hybrid role with 2-3 days per week in our Chicago office, with remote flexibility.`
+  },
+  {
+    name: 'Full-Stack Developer - React/Node',
+    content: `Full-Stack Software Engineer
+Digital Solutions Inc. - Remote (USA) / Chicago, IL (Hybrid)
+Salary: $110,000 - $140,000 per year
+Posted: 2 days ago
+
+Digital Solutions Inc. is seeking an experienced Full-Stack Software Engineer to join our development team. You will work on building scalable web applications using modern JavaScript frameworks and technologies.
+
+Key Responsibilities:
+- Develop responsive web applications using React.js and Node.js
+- Design and implement RESTful APIs and backend services
+- Build and maintain database schemas using MySQL
+- Integrate third-party services and APIs
+- Implement automated testing using Selenium and other testing frameworks
+- Collaborate with cross-functional teams using Agile/Scrum methodologies
+- Mentor junior developers and contribute to code reviews
+- Optimize application performance and user experience
+
+Required Qualifications:
+- 2+ years of professional experience in full-stack development
+- Strong proficiency in JavaScript, React.js, and Node.js
+- Experience with backend frameworks (Express.js, Flask, Spring Boot)
+- Database experience with MySQL or similar relational databases
+- Knowledge of HTML, CSS3, and modern web development practices
+- Experience with version control (Git, GitHub)
+- Understanding of RESTful API design and development
+
+Preferred Qualifications:
+- Experience with test automation tools (Selenium, Jenkins)
+- Knowledge of PHP, Java, or Python
+- Experience with LightningJS or similar frameworks
+- Background in UI/UX development and optimization
+- Experience with CI/CD pipelines and DevOps practices
+- Agile/Scrum experience
+- Experience leading small teams or mentoring developers
+
+We offer competitive compensation, comprehensive health benefits, flexible work arrangements, professional development opportunities, and a collaborative team environment. This position offers full remote flexibility or hybrid work in our Chicago office.`
   }
 ];
 
@@ -85,12 +204,19 @@ const App: React.FC = () => {
   const [atsAnalysis, setAtsAnalysis] = useState<AtsAnalysis | null>(null);
   const [isAtsLoading, setIsAtsLoading] = useState<boolean>(false);
   const [atsError, setAtsError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Batch 1 Feature States
   const [resumeBullets, setResumeBullets] = useState<string>('');
   const [resumeOptimization, setResumeOptimization] = useState<ResumeOptimization | null>(null);
   const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
   const [optimizerError, setOptimizerError] = useState<string | null>(null);
+  const [optimizerFile, setOptimizerFile] = useState<File | null>(null);
+  const [isExtractingBullets, setIsExtractingBullets] = useState<boolean>(false);
+  const optimizerFileInputRef = useRef<HTMLInputElement>(null);
+  const [inputMode, setInputMode] = useState<'manual' | 'upload'>('manual');
+  const [bulletSelectionReasoning, setBulletSelectionReasoning] = useState<string | null>(null);
+  const [fullResumeText, setFullResumeText] = useState<string | null>(null);
   
   const [coverLetter, setCoverLetter] = useState<CoverLetter | null>(null);
   const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState<boolean>(false);
@@ -169,7 +295,102 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Reset file input when job description changes to allow uploading a new resume
+  useEffect(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    // Clear previous analysis and selected file when job changes
+    setAtsAnalysis(null);
+    setAtsError(null);
+    setSelectedFile(null);
+    // Clear bullet selection reasoning when job changes
+    setBulletSelectionReasoning(null);
+  }, [jobText]);
+
   // Batch 1 Feature Handlers
+  const handleOptimizerFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      if (file.type === 'application/pdf') {
+        // Check file size (10MB limit)
+        if (file.size > 10 * 1024 * 1024) {
+          setOptimizerError("File size exceeds 10MB. Please upload a smaller file.");
+          event.target.value = '';
+          if (optimizerFileInputRef.current) {
+            optimizerFileInputRef.current.value = '';
+          }
+          return;
+        }
+        setOptimizerFile(file);
+        setOptimizerError(null);
+        setResumeOptimization(null);
+        
+        // Automatically extract bullets from the uploaded resume
+        setIsExtractingBullets(true);
+        setBulletSelectionReasoning(null);
+        try {
+          const resumeText = await extractTextFromPdf(file);
+          if (!resumeText.trim()) {
+            throw new Error("Could not extract text from the PDF. The file might be empty, image-based, or password-protected.");
+          }
+          if (resumeText.length < 100) {
+            throw new Error("The extracted resume text is too short. Please ensure your resume contains readable text.");
+          }
+          
+          // Store full resume text for skill checking
+          setFullResumeText(resumeText);
+          
+          // Extract all bullets from resume
+          const allExtractedBullets = await extractBulletsFromResume(resumeText);
+          if (allExtractedBullets.length === 0) {
+            throw new Error("No bullet points found in the resume. Please ensure your resume contains bullet points.");
+          }
+          
+          // If job description is present, select the most relevant bullets
+          if (jobText.trim() && jobText.trim().length > 50) {
+            try {
+              const { selectedBullets, reasoning } = await selectRelevantBullets(
+                allExtractedBullets,
+                jobText.trim(),
+                20 // Select top 20 most relevant bullets
+              );
+              setResumeBullets(selectedBullets.join('\n'));
+              setBulletSelectionReasoning(reasoning);
+            } catch (selectionError: any) {
+              // If selection fails, fall back to all bullets
+              console.warn("Failed to select relevant bullets, using all bullets:", selectionError);
+              setResumeBullets(allExtractedBullets.join('\n'));
+            }
+          } else {
+            // No job description, use all extracted bullets
+            setResumeBullets(allExtractedBullets.join('\n'));
+          }
+          
+          setInputMode('manual'); // Switch to manual mode to show the extracted bullets
+        } catch (err: any) {
+          console.error("Error extracting bullets:", err);
+          setOptimizerError(err.message || "Failed to extract bullet points from resume. Please try again or enter bullets manually.");
+          setOptimizerFile(null);
+        } finally {
+          setIsExtractingBullets(false);
+          // Reset input to allow re-upload
+          event.target.value = '';
+          if (optimizerFileInputRef.current) {
+            optimizerFileInputRef.current.value = '';
+          }
+        }
+      } else {
+        setOptimizerError("Please upload a PDF file. Other file types are not supported.");
+        setOptimizerFile(null);
+        event.target.value = '';
+        if (optimizerFileInputRef.current) {
+          optimizerFileInputRef.current.value = '';
+        }
+      }
+    }
+  };
+
   const handleOptimizeResume = useCallback(async () => {
     if (!resumeBullets.trim()) {
       setOptimizerError("Please enter resume bullet points to optimize.");
@@ -182,17 +403,18 @@ const App: React.FC = () => {
       return;
     }
     
-    if (bullets.length > 20) {
-      setOptimizerError("Please limit to 20 bullet points at a time for best results.");
-      return;
-    }
-    
     setIsOptimizing(true);
     setOptimizerError(null);
     setResumeOptimization(null);
 
     try {
-      const result = await optimizeResumeBullets(bullets, jobText.trim() || undefined);
+      // Pass full resume text if available (from uploaded file) so AI can check for skills across entire resume
+      if (fullResumeText) {
+        console.log("Passing full resume text to optimizer for skill checking");
+      } else {
+        console.log("No full resume text available - only checking bullet points for skills");
+      }
+      const result = await optimizeResumeBullets(bullets, jobText.trim() || undefined, fullResumeText || undefined);
       if (!result || !result.optimizedBullets || result.optimizedBullets.length === 0) {
         throw new Error("No optimizations were generated. Please try again with different bullet points.");
       }
@@ -212,7 +434,7 @@ const App: React.FC = () => {
     } finally {
       setIsOptimizing(false);
     }
-  }, [resumeBullets, jobText]);
+  }, [resumeBullets, jobText, fullResumeText]);
 
   const handleGenerateCoverLetter = useCallback(async () => {
     if (!jobText.trim()) {
@@ -550,15 +772,23 @@ const App: React.FC = () => {
             if (file.size > 10 * 1024 * 1024) {
                 setAtsError("File size exceeds 10MB. Please upload a smaller file.");
                 event.target.value = ''; // Clear the input
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                }
                 return;
             }
             setSelectedFile(file);
             setAtsError(null);
             setAtsAnalysis(null);
+            // Reset input value to allow selecting the same file again
+            event.target.value = '';
         } else {
             setAtsError("Please upload a PDF file. Other file types are not supported.");
             setSelectedFile(null);
             event.target.value = ''; // Clear the input
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
         }
     }
   };
@@ -646,6 +876,10 @@ const App: React.FC = () => {
         setAtsError(err.message || "An unknown error occurred during ATS analysis. Please try again.");
     } finally {
         setIsAtsLoading(false);
+        // Reset file input to allow uploading again
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
     }
   };
 
@@ -871,7 +1105,7 @@ const App: React.FC = () => {
                     <label htmlFor="resume-upload" className="w-full sm:w-auto flex-shrink-0 cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 px-4 rounded-lg transition-colors text-center">
                         {selectedFile ? 'Change File' : 'Upload PDF'}
                     </label>
-                    <input id="resume-upload" type="file" accept=".pdf" onChange={handleFileChange} className="hidden" />
+                    <input id="resume-upload" ref={fileInputRef} type="file" accept=".pdf" onChange={handleFileChange} className="hidden" />
                     <span className="text-slate-400 truncate w-full text-center sm:text-left">{selectedFile ? selectedFile.name : 'No file selected.'}</span>
                 </div>
                  <button onClick={handleAtsCheckClick} disabled={isAtsLoading || !selectedFile} className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center">
@@ -935,26 +1169,107 @@ const App: React.FC = () => {
     <div className="space-y-6">
       <div className="bg-slate-800/50 rounded-lg p-6 backdrop-blur-sm border border-slate-700">
         <h2 className="text-xl font-bold mb-4">AI Resume Optimizer Pro</h2>
-        <p className="text-slate-400 text-sm mb-4">Paste your resume bullet points (one per line) to get AI-optimized versions that improve ATS scores.</p>
+        <p className="text-slate-400 text-sm mb-4">Upload your resume PDF to automatically extract bullet points, or paste them manually.</p>
         {jobText.trim() && (
           <div className="mb-4 p-3 bg-blue-900/20 border border-blue-700/50 rounded-lg">
             <p className="text-xs text-blue-300">💡 Tip: Using the job description from the left panel to optimize bullets for this specific role.</p>
           </div>
         )}
+        
+        {/* Input Mode Toggle */}
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => {
+              setInputMode('manual');
+              setOptimizerError(null);
+            }}
+            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+              inputMode === 'manual'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            Manual Entry
+          </button>
+          <button
+            onClick={() => {
+              setInputMode('upload');
+              setOptimizerError(null);
+            }}
+            className={`flex-1 py-2 px-4 rounded-lg font-medium transition-all ${
+              inputMode === 'upload'
+                ? 'bg-indigo-600 text-white'
+                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+            }`}
+          >
+            Upload Resume PDF
+          </button>
+        </div>
+
+        {inputMode === 'upload' ? (
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-center">
+              <label htmlFor="optimizer-resume-upload" className="w-full sm:w-auto flex-shrink-0 cursor-pointer bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold py-2 px-4 rounded-lg transition-colors text-center">
+                {optimizerFile ? 'Change File' : 'Upload PDF Resume'}
+              </label>
+              <input 
+                id="optimizer-resume-upload" 
+                ref={optimizerFileInputRef}
+                type="file" 
+                accept=".pdf" 
+                onChange={handleOptimizerFileChange} 
+                className="hidden" 
+              />
+              <span className="text-slate-400 truncate w-full text-center sm:text-left">
+                {optimizerFile ? optimizerFile.name : 'No file selected.'}
+              </span>
+            </div>
+            {isExtractingBullets && (
+              <div className="flex items-center justify-center py-4">
+                <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mr-2"></div>
+                <span className="text-slate-400">
+                  {jobText.trim() && jobText.trim().length > 50 
+                    ? "Extracting and selecting most relevant bullet points for this job..." 
+                    : "Extracting bullet points from resume..."}
+                </span>
+              </div>
+            )}
+            {optimizerFile && !isExtractingBullets && (
+              <div className="p-3 bg-green-900/20 border border-green-700/50 rounded-lg">
+                <p className="text-xs text-green-300">✓ Resume uploaded. Bullet points extracted and displayed below.</p>
+                {bulletSelectionReasoning && (
+                  <div className="mt-2 pt-2 border-t border-green-700/30">
+                    <p className="text-xs text-green-200 font-semibold mb-1">Selected bullets for this job:</p>
+                    <p className="text-xs text-green-300/80">{bulletSelectionReasoning}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
+
         <textarea
           value={resumeBullets}
           onChange={(e) => {
             setResumeBullets(e.target.value);
             setOptimizerError(null); // Clear errors when typing
           }}
-          placeholder="Paste resume bullet points here, one per line...&#10;Example:&#10;• Managed a team of 5 developers&#10;• Increased sales by 20%&#10;• Built REST APIs using Node.js"
+          placeholder={inputMode === 'upload' 
+            ? "Bullet points will appear here after uploading your resume PDF..." 
+            : "Paste resume bullet points here, one per line...\nExample:\n• Managed a team of 5 developers\n• Increased sales by 20%\n• Built REST APIs using Node.js"}
           className="w-full p-4 bg-slate-800 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none min-h-[200px] text-slate-300 mb-4"
+          disabled={isExtractingBullets}
         />
         <div className="flex items-center justify-between mb-4 text-xs text-slate-500">
           <span>{resumeBullets.split('\n').filter(b => b.trim()).length} bullet point{resumeBullets.split('\n').filter(b => b.trim()).length !== 1 ? 's' : ''}</span>
           {resumeBullets.length > 0 && (
             <button
-              onClick={() => setResumeBullets('')}
+              onClick={() => {
+                setResumeBullets('');
+                setOptimizerFile(null);
+                setBulletSelectionReasoning(null);
+                setFullResumeText(null);
+              }}
               className="text-slate-400 hover:text-slate-300"
             >
               Clear
@@ -963,7 +1278,7 @@ const App: React.FC = () => {
         </div>
         <button
           onClick={handleOptimizeResume}
-          disabled={isOptimizing || !resumeBullets.trim()}
+          disabled={isOptimizing || !resumeBullets.trim() || isExtractingBullets}
           className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-all flex items-center justify-center"
         >
           {isOptimizing ? (
@@ -999,6 +1314,41 @@ const App: React.FC = () => {
               <p className="text-xs text-slate-400 italic">{bullet.improvementReason}</p>
             </div>
           ))}
+          
+          {resumeOptimization.skillRecommendations && resumeOptimization.skillRecommendations.length > 0 && (
+            <div className="bg-amber-900/20 rounded-lg p-6 backdrop-blur-sm border border-amber-700/50">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-2xl">💡</span>
+                <h3 className="text-lg font-bold text-amber-300">Recommended Skills to Consider</h3>
+              </div>
+              <p className="text-sm text-amber-200/80 mb-4">
+                These skills are important for this job but aren't currently in your resume. If you have experience with any of these, consider adding them. These are suggestions only - do not add them unless you actually have this experience.
+              </p>
+              <div className="space-y-4">
+                {resumeOptimization.skillRecommendations.map((rec, idx) => (
+                  <div key={idx} className="bg-slate-800/50 rounded-lg p-4 border border-amber-700/30">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-amber-400">{rec.skill}</span>
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          rec.priority === 'high' ? 'bg-red-900/50 text-red-300' :
+                          rec.priority === 'medium' ? 'bg-yellow-900/50 text-yellow-300' :
+                          'bg-blue-900/50 text-blue-300'
+                        }`}>
+                          {rec.priority === 'high' ? 'High Priority' : rec.priority === 'medium' ? 'Medium Priority' : 'Low Priority'}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-slate-300 mb-3">{rec.reason}</p>
+                    <div className="bg-slate-900/50 rounded p-3 border border-slate-700">
+                      <p className="text-xs text-slate-400 mb-1">Example bullet (if you have this experience):</p>
+                      <p className="text-sm text-amber-200 italic">"{rec.exampleBullet}"</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
